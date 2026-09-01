@@ -1,11 +1,11 @@
-# Estágio 1: Build da aplicação com Maven
-FROM maven:3.9.6-eclipse-temurin-17 AS build
+# Estágio 1: Build da aplicação com Maven Wrapper (usando Java 25)
+FROM eclipse-temurin:25-jdk-jammy AS build
 WORKDIR /app
 COPY . .
-RUN mvn clean package -DskipTests
+RUN ./mvnw clean package -DskipTests
 
-# Estágio 2: Execução da aplicação leve
-FROM eclipse-temurin:17-jre-jammy
+# Estágio 2: Execução da aplicação leve (usando JRE 25)
+FROM eclipse-temurin:25-jre-jammy
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 
