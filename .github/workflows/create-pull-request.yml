@@ -1,55 +1,41 @@
 name: Auto Create Pull Request
 
+# 1. Gatilho: O workflow vai rodar sempre que houver um push
 on:
   push:
     branches:
-      - 'feature/**'
-      - 'feature-*'
+      - 'feature/**' # Funciona para feature/api-produtora, feature/worker, etc.
 
 jobs:
-  create-pull-request:
+  create-pr:
     runs-on: ubuntu-latest
+    
+    # 2. Permissões: Dá autorização para o bot do GitHub criar o PR
     permissions:
-      contents: write
       pull-requests: write
-
+      contents: read
+      
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Configure Git
-        run: |
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-
-      - name: Create Pull Request to develop
+        
+      - name: Create Pull Request
+        # 3. Usa o token automático do GitHub (não precisa configurar nada)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          BRANCH_NAME="${{ github.ref_name }}"
-          echo "Current branch: $BRANCH_NAME"
+          # 4. Verifica se já existe um PR aberto para essa branch
+          PR_EXISTS=$(gh pr list --head "${GITHUB_REF_NAME}" --json url --jq 'length')
           
-          # Verificar se branch develop existe
-          if ! git rev-parse --verify origin/develop &>/dev/null; then
-            echo "❌ Erro: Branch 'develop' não existe!"
-            exit 1
-          fi
-          
-          # Verificar se já existe um PR aberto da branch atual para a develop
-          EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --base develop --json number --jq '.[0].number' 2>/dev/null || echo "")
-          
-          if [ -z "$EXISTING_PR" ]; then
-            echo "✅ Nenhum Pull Request existente encontrado. Criando um novo..."
+          if [ "$PR_EXISTS" -eq "0" ]; then
+            # Se não existir, cria um novo PR apontando para a main
             gh pr create \
-              --head "$BRANCH_NAME" \
-              --base develop \
-              --title "Feature: $BRANCH_NAME" \
-              --body "PR automático criado a partir do push na branch \`$BRANCH_NAME\` direcionado para \`develop\`." \
-              --draft=false
-            echo "✅ PR criado com sucesso!"
+              --base main \
+              --head "${GITHUB_REF_NAME}" \
+              --title "🚀 Feature: ${GITHUB_REF_NAME}" \
+              --body "Pull request gerado automaticamente via GitHub Actions pelo push na branch \`${GITHUB_REF_NAME}\`."
+            echo "✅ Pull Request criado com sucesso!"
           else
-            echo "ℹ️ Pull Request já existe para essa branch para a develop: #$EXISTING_PR"
+            # Se já existir, apenas avisa e não faz nada
+            echo "ℹ️ Um Pull Request para esta branch já está aberto. Atualização de código feita no PR existente."
           fi
